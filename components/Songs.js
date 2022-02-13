@@ -1,10 +1,45 @@
 import { ClockIcon } from '@heroicons/react/outline'
-import { useRecoilValue } from 'recoil'
+import { useCallback, useEffect, useRef } from 'react'
+import { useRecoilState } from 'recoil'
 import { playlistState } from '../atoms/playlistAtom'
+import useSpotify from '../hooks/useSpotify'
 import Song from './Song'
 
 function Songs() {
-  const playlist = useRecoilValue(playlistState)
+  const [playlist, setPlaylist] = useRecoilState(playlistState)
+  const spotifyApi = useSpotify()
+  const loader = useRef(null)
+
+  const loadMore = useCallback(async (entries) => {
+    const entry = entries.pop()
+    if (entry.intersectionRatio > 0) {
+      if (playlist.tracks.next) {
+        const trackInfo = await fetch(playlist.tracks.next, {
+          headers: {
+            Authorization: `Bearer ${spotifyApi.getAccessToken()}`,
+          },
+        })
+        const res = await trackInfo.json()
+        const tracks = playlist.tracks.items.concat(res.items)
+        setPlaylist({ ...playlist, tracks: { items: tracks, next: res.next } })
+      }
+    }
+  })
+
+  useEffect(() => {
+    const options = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.25,
+    }
+    const observer = new IntersectionObserver(loadMore, options)
+
+    if (loader && loader.current) {
+      observer.observe(loader.current)
+    }
+
+    return () => observer.unobserve(loader.current)
+  }, [loader, loadMore])
 
   return (
     <div className="flex flex-col space-y-2 bg-[#121212] pb-28">
@@ -16,12 +51,18 @@ function Songs() {
         </div>
         <div className="ml-auto flex items-center justify-between md:ml-0">
           <p className="hidden w-40 md:inline">ALBUM</p>
-          <ClockIcon className='w-5 h-5' />
+          <ClockIcon className="h-5 w-5" />
         </div>
       </div>
       {playlist?.tracks.items.map((track, i) => (
-        <Song key={track.track.id} track={track} order={i} />
+        <Song key={i} track={track} order={i} />
       ))}
+      <div
+        style={
+          playlist?.tracks ? {} : { position: 'absolute', bottom: '9999999px' }
+        }
+        ref={loader}
+      ></div>
     </div>
   )
 }
