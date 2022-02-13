@@ -1,23 +1,19 @@
 import { useSession } from 'next-auth/react'
-import React, { useCallback, useEffect, useState } from 'react'
-import { useRecoilState } from 'recoil'
+import React, { useEffect } from 'react'
+import { useRecoilState, useRecoilValue } from 'recoil'
 import { currentTrackIdState, isPlayingState } from '../atoms/songAtom'
+import { playlistState } from '../atoms/playlistAtom'
 import useSongInfo from '../hooks/useSongInfo'
 import useSpotify from '../hooks/useSpotify'
 import {
-  HeartIcon,
-  VolumeUpIcon as VolumeDownIcon,
-} from '@heroicons/react/outline'
-import {
   RewindIcon,
   SwitchHorizontalIcon,
-  VolumeUpIcon,
-  ReplyIcon,
+  RefreshIcon as ReplayIcon,
   PlayIcon,
   PauseIcon,
   FastForwardIcon,
 } from '@heroicons/react/solid'
-import { debounce } from 'lodash'
+import Volume from './Volume'
 
 function Player() {
   const spotifyApi = useSpotify()
@@ -25,8 +21,9 @@ function Player() {
 
   const [currentTrackId, setCurrentTrackId] =
     useRecoilState(currentTrackIdState)
+
+  const playlist = useRecoilValue(playlistState)
   const [isPlaying, setIsPlaying] = useRecoilState(isPlayingState)
-  const [volume, setVolume] = useState(50)
 
   const songInfo = useSongInfo()
 
@@ -40,6 +37,24 @@ function Player() {
           setIsPlaying(data.body?.is_playing)
         })
       })
+    }
+  }
+
+  const fetchNextSong = (isForward = true) => {
+    if (currentTrackId) {
+      const playlistTrackIds = playlist.tracks.items.map((x) => x.track.id)
+      const trackIndex = playlistTrackIds.findIndex(
+        (playlistTrackId) => playlistTrackId === currentTrackId
+      )
+      const nextIndex = isForward ? 1 : -1;
+      const nextTrack = playlist.tracks.items[trackIndex + nextIndex]
+      if (nextTrack) {
+        setCurrentTrackId(nextTrack.track.id)
+        setIsPlaying(true)
+        spotifyApi.play({
+          uris: [nextTrack.track.uri],
+        })
+      }
     }
   }
 
@@ -58,25 +73,11 @@ function Player() {
   useEffect(() => {
     if (spotifyApi.getAccessToken() && !currentTrackId) {
       fetchCurrentSong()
-      setVolume(50)
     }
   }, [currentTrackId, spotifyApi, session])
 
-  useEffect(() => {
-    if (volume > 0 && volume < 100) {
-      debouncedAdjustVolume(volume)
-    }
-  }, [volume])
-
-  const debouncedAdjustVolume = useCallback(
-    debounce((volume) => {
-      spotifyApi.setVolume(volume).catch(err => {})
-    }, 100),
-    []
-  )
-
   return (
-    <div className="grid h-24 grid-cols-3 bg-gradient-to-b from-black to-gray-800 px-2 text-xs text-white md:px-8 md:text-base">
+    <div className="grid h-24 grid-cols-3 border-2 border-[#181818] border-t-[#282828] bg-[#181818] px-2 text-xs text-white md:px-8 md:text-base">
       {/* Left */}
       <div className="flex items-center space-x-4">
         <img
@@ -92,7 +93,10 @@ function Player() {
       {/* Center */}
       <div className="flex items-center justify-evenly">
         <SwitchHorizontalIcon className="button" />
-        <RewindIcon className="button" />
+        <RewindIcon
+          className="button"
+          onClick={() => fetchNextSong(false)}
+        />
 
         {isPlaying ? (
           <PauseIcon onClick={handlePlayPause} className="button h-10 w-10" />
@@ -100,28 +104,11 @@ function Player() {
           <PlayIcon onClick={handlePlayPause} className="button h-10 w-10" />
         )}
 
-        <FastForwardIcon className="button" />
+        <FastForwardIcon className="button" onClick={() => fetchNextSong()} />
+        <ReplayIcon className="button" />
       </div>
 
-      {/* Right */}
-      <div className="flex items-center justify-end space-x-3 pr-5 md:space-x-4">
-        <VolumeDownIcon
-          onClick={() => volume > 0 && setVolume(volume - 10)}
-          className="button"
-        />
-        <input
-          className="w-14 md:w-20"
-          type="range"
-          value={volume}
-          min={0}
-          max={100}
-          onChange={(e) => setVolume(Number(e.target.value))}
-        />
-        <VolumeUpIcon
-          onClick={() => volume < 100 && setVolume(volume + 10)}
-          className="button"
-        />
-      </div>
+      <Volume />
     </div>
   )
 }

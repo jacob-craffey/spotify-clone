@@ -26,8 +26,6 @@ export default function Sidebar() {
     }
   }, [session, spotifyApi])
 
-  console.log(playlistId)
-
   return (
     <div className="overflow-y-scroll border-r border-gray-900 p-5 text-xs lg:text-sm text-gray-500 scrollbar-hide h-screen sm:max-w-[12rem] lg:max-w-[15rem] hidden md:inline-flex pb-36">
       <div className="space-y-4">

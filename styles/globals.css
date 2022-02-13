@@ -6,4 +6,17 @@
     .button {
         @apply w-5 h-5 cursor-pointer hover:scale-125 transform transition duration-100 ease-out
     }
+    
+    .range {
+        color: #b3b3b3;
+        height: 4px;
+    }
+
+    .range .MuiSlider-thumb {
+        color: white;
+    }
+
+    .range:hover {
+        color: #1db954;
+    }
 }
